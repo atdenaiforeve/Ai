@@ -13,9 +13,9 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
 });
 
 function detectSwitch(message) {
-  const text = message.toLowerCase().replace(/\\s+/g, " ").trim();
-  if (/\\bswitch to grounded ?1\\b/.test(text)) return "grounded1";
-  if (/\\bswitch to grounded ?2\\b/.test(text)) return "grounded2";
+  const text = message.toLowerCase().replace(/\s+/g, " ").trim();
+  if (/\bswitch to grounded ?1\b/.test(text)) return "grounded1";
+  if (/\bswitch to grounded ?2\b/.test(text)) return "grounded2";
   return null;
 }
 
@@ -62,7 +62,7 @@ export default {
       }
 
       const messages = [
-        { role: "system", content: SYSTEM_PROMPT + "\\n\\nACTIVE GAME MODE: " + (gameMode === "grounded1" ? "Grounded 1" : "Grounded 2") + ". Stay in this game unless the user explicitly switches." },
+        { role: "system", content: SYSTEM_PROMPT + "\n\nACTIVE GAME MODE: " + (gameMode === "grounded1" ? "Grounded 1" : "Grounded 2") + ". Stay in this game unless the user explicitly switches." },
         ...history
       ];
       const result = await env.AI.run(MODEL, { messages, max_tokens: 500 });
