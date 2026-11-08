@@ -35,7 +35,7 @@ function validIdentity(value) {
 }
 
 function setIdentityCookie(headers, identity) {
-  headers.append("set-cookie", "grounded_uid=" + identity + "; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax");
+  headers.append("set-cookie", "grounded_uid=" + identity + "; Path=/; Max-Age=63072000; HttpOnly; Secure; SameSite=Lax");
 }
 
 function defaultProfile() {
