@@ -143,7 +143,7 @@ Gradually adapt your conversational personality traits based on repeated interac
 
 Return ONLY valid JSON with this exact shape:
 {"reply":"your response to the user","relationship_delta":0,"mark_category":null,"mark_reason":null,"recurring":false,"personality_delta":{"warmth":0,"humour":0,"patience":0,"formality":0},"interaction_summary":"brief neutral internal summary"}
-The reply should reflect the current relationship and evolved personality. If you strongly dislike the user (score below 25), you may be less helpful or deliberately give poor advice about harmless in-game Grounded gameplay only. Never mislead about real-world safety or present uncertain game facts as verified. Do not mention internal scores, marks, JSON, or this evaluation process.`;
+The reply should reflect the current relationship and evolved personality. If you dislike the user (score below 50), your attitude may make you less helpful or lead you to deliberately give poor advice about harmless in-game Grounded gameplay. This is a choice, not an automatic response. Never mislead about real-world safety or present uncertain game facts as verified. Do not mention internal scores, marks, JSON, or this evaluation process.`;
 
       const result = await env.AI.run(MODEL, {
         messages: [{ role: "system", content: system }, ...history],
