@@ -124,11 +124,23 @@ async function saveKnowledge(env, gameMode, question, facts, sources, gameVersio
     return typeof f.fact === "string" && f.fact.trim().length >= 12 && Number(f.confidence) >= 0.8 && new Set(indexes.map(i => sources[i].domain)).size >= 2;
   }).slice(0, 8);
   if (!validFacts.length) return 0;
-  const id = crypto.randomUUID();
-  const record = { id, game: gameMode, gameVersion: typeof gameVersion === "string" ? gameVersion.slice(0, 80) : "not specified by sources", question: question.slice(0, 300), facts: validFacts.map(f => f.fact.trim().slice(0, 500)), sources: sources.map((s, i) => ({ index: i, title: s.title, url: s.url, domain: s.domain })), confidence: Math.min(...validFacts.map(f => Number(f.confidence))), status: "corroborated", savedAt: new Date().toISOString(), lastChecked: new Date().toISOString() };
-  await env.PROFILES.put("knowledge:" + gameMode + ":" + id, JSON.stringify(record), { expirationTtl: 63072000 });
   const key = "knowledge-index:" + gameMode, index = await env.PROFILES.get(key, "json") || [];
-  index.unshift({ id, question: record.question, facts: record.facts, tags: knowledgeTokens(question).slice(0, 20), savedAt: record.savedAt });
+  const queryTokens = new Set(knowledgeTokens(question));
+  const related = index.map(item => ({ item, score: knowledgeTokens(item.question).filter(token => queryTokens.has(token)).length })).filter(x => x.score >= 3).sort((a, b) => b.score - a.score)[0];
+  let version = 1;
+  if (related) {
+    const previous = await env.PROFILES.get("knowledge:" + gameMode + ":" + related.item.id, "json");
+    if (previous) {
+      version = (Number(previous.version) || 1) + 1;
+      previous.status = "superseded";
+      previous.supersededAt = new Date().toISOString();
+      await env.PROFILES.put("knowledge:" + gameMode + ":" + previous.id, JSON.stringify(previous), { expirationTtl: 63072000 });
+    }
+  }
+  const id = crypto.randomUUID();
+  const record = { id, version, game: gameMode, gameVersion: typeof gameVersion === "string" ? gameVersion.slice(0, 80) : "not specified by sources", question: question.slice(0, 300), facts: validFacts.map(f => f.fact.trim().slice(0, 500)), sources: sources.map((s, i) => ({ index: i, title: s.title, url: s.url, domain: s.domain })), confidence: Math.min(...validFacts.map(f => Number(f.confidence))), status: "corroborated", savedAt: new Date().toISOString(), lastChecked: new Date().toISOString() };
+  await env.PROFILES.put("knowledge:" + gameMode + ":" + id, JSON.stringify(record), { expirationTtl: 63072000 });
+  index.unshift({ id, question: record.question, facts: record.facts, tags: knowledgeTokens(question).slice(0, 20), savedAt: record.savedAt, version });
   await env.PROFILES.put(key, JSON.stringify(index.slice(0, 250)), { expirationTtl: 63072000 });
   return validFacts.length;
 }
