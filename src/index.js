@@ -112,6 +112,12 @@ async function findKnowledge(env, gameMode, query) {
   }).filter(x => x.score >= 2).sort((a, b) => b.score - a.score).slice(0, 4);
   return (await Promise.all(ranked.map(x => env.PROFILES.get("knowledge:" + gameMode + ":" + x.id, "json")))).filter(Boolean);
 }
+async function saveResearchHistory(env, identity, entry) {
+  const key = "research-history:" + identity;
+  const history = await env.PROFILES.get(key, "json") || [];
+  history.unshift(entry);
+  await env.PROFILES.put(key, JSON.stringify(history.slice(0, 30)), { expirationTtl: 63072000 });
+}
 async function saveKnowledge(env, gameMode, question, facts, sources, gameVersion) {
   const validFacts = facts.filter(f => {
     const indexes = Array.isArray(f.source_indexes) ? [...new Set(f.source_indexes)].filter(i => Number.isInteger(i) && i >= 0 && i < sources.length) : [];
@@ -245,7 +251,9 @@ The reply should reflect the current relationship and evolved personality throug
       const savedFacts = parsed && Array.isArray(parsed.knowledge_to_save) ? await saveKnowledge(env, gameMode, message, parsed.knowledge_to_save, researchSources, parsed.game_version) : 0;
       profile.lastSeen = new Date().toISOString();
       await env.PROFILES.put("user:" + identity, JSON.stringify(profile), { expirationTtl: 63072000 });
-      const response = json({ reply, gameMode, research: { searched: cached.length === 0, cachedRecordsUsed: cached.length, sourcesFound: researchSources.length, factsSaved: savedFacts, searchUnavailable: Boolean(researchError) } });
+      const researchMeta = { searched: true, cachedRecordsUsed: cached.length, sourcesFound: researchSources.length, factsSaved: savedFacts, searchUnavailable: Boolean(researchError) };
+      await saveResearchHistory(env, identity, { gameMode, question: message, research: researchMeta, sources: researchSources.map(s => ({ title: s.title, url: s.url, domain: s.domain })), at: new Date().toISOString() });
+      const response = json({ reply, gameMode, research: researchMeta });
       if (freshIdentity) setIdentityCookie(response.headers, identity);
       return response;
     } catch (error) {
