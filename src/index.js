@@ -111,14 +111,14 @@ async function findKnowledge(env, gameMode, query) {
   }).filter(x => x.score >= 2).sort((a, b) => b.score - a.score).slice(0, 4);
   return (await Promise.all(ranked.map(x => env.PROFILES.get("knowledge:" + gameMode + ":" + x.id, "json")))).filter(Boolean);
 }
-async function saveKnowledge(env, gameMode, question, facts, sources) {
+async function saveKnowledge(env, gameMode, question, facts, sources, gameVersion) {
   const validFacts = facts.filter(f => {
     const indexes = Array.isArray(f.source_indexes) ? [...new Set(f.source_indexes)].filter(i => Number.isInteger(i) && i >= 0 && i < sources.length) : [];
     return typeof f.fact === "string" && f.fact.trim().length >= 12 && Number(f.confidence) >= 0.8 && new Set(indexes.map(i => sources[i].domain)).size >= 2;
   }).slice(0, 8);
   if (!validFacts.length) return 0;
   const id = crypto.randomUUID();
-  const record = { id, game: gameMode, question: question.slice(0, 300), facts: validFacts.map(f => f.fact.trim().slice(0, 500)), sources: sources.map((s, i) => ({ index: i, title: s.title, url: s.url, domain: s.domain })), confidence: Math.min(...validFacts.map(f => Number(f.confidence))), status: "corroborated", savedAt: new Date().toISOString() };
+  const record = { id, game: gameMode, gameVersion: typeof gameVersion === "string" ? gameVersion.slice(0, 80) : "not specified by sources", question: question.slice(0, 300), facts: validFacts.map(f => f.fact.trim().slice(0, 500)), sources: sources.map((s, i) => ({ index: i, title: s.title, url: s.url, domain: s.domain })), confidence: Math.min(...validFacts.map(f => Number(f.confidence))), status: "corroborated", savedAt: new Date().toISOString(), lastChecked: new Date().toISOString() };
   await env.PROFILES.put("knowledge:" + gameMode + ":" + id, JSON.stringify(record), { expirationTtl: 63072000 });
   const key = "knowledge-index:" + gameMode, index = await env.PROFILES.get(key, "json") || [];
   index.unshift({ id, question: record.question, facts: record.facts, tags: knowledgeTokens(question).slice(0, 20), savedAt: record.savedAt });
@@ -242,7 +242,7 @@ The reply should reflect the current relationship and evolved personality throug
           profile.recentInteractions = profile.recentInteractions.slice(-12);
         }
       }
-      const savedFacts = parsed && Array.isArray(parsed.knowledge_to_save) ? await saveKnowledge(env, gameMode, message, parsed.knowledge_to_save, researchSources) : 0;
+      const savedFacts = parsed && Array.isArray(parsed.knowledge_to_save) ? await saveKnowledge(env, gameMode, message, parsed.knowledge_to_save, researchSources, parsed.game_version) : 0;
       profile.lastSeen = new Date().toISOString();
       await env.PROFILES.put("user:" + identity, JSON.stringify(profile), { expirationTtl: 63072000 });
       const response = json({ reply, gameMode, research: { searched: cached.length === 0, cachedRecordsUsed: cached.length, sourcesFound: researchSources.length, factsSaved: savedFacts, searchUnavailable: Boolean(researchError) } });
